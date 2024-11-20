@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import tempfile
 import os
+import re
 
 # 초기 상태 설정
 if 'username' not in st.session_state:
@@ -72,7 +73,7 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
     # 현재 계획을 HTML 테이블로 시각화
     time_rows = "".join([
         f"<tr><td style='padding: 2px 5px; height: 20px;'>{time}</td>" +
-        "".join([f"<td style='width: 100px; height: 20px;'>{st.session_state['weekly_plan'][day][i]}</td>" 
+        "".join([f"<td style='width: 100px; height: 20px;'>{st.session_state['weekly_plan'][day][i]}</td>"
                  for day in days_of_week]) +
         "</tr>"
         for i, time in enumerate(time_slots)
@@ -97,11 +98,22 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
     """
     st.markdown(html_table, unsafe_allow_html=True)
 
-    # CSV 저장
+    # HTML 태그를 제거하는 함수 생성
+    def strip_html(html):
+        clean = re.compile('<.*?>')
+        return re.sub(clean, '', html)
+
+    # CSV 저장시 색깔 코드를 제외하는 함수
     def save_to_csv():
+        # HTML 태그를 제거한 순수한 텍스트로 변경
+        weekly_plan_text_only = {
+            day: [strip_html(slot) for slot in st.session_state['weekly_plan'][day]]
+            for day in days_of_week
+        }
+
         # 임시 저장소 생성
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
-            df = pd.DataFrame(st.session_state['weekly_plan'], index=time_slots)
+            df = pd.DataFrame(weekly_plan_text_only, index=time_slots)
             df.to_csv(tmp_file.name, encoding='utf-8-sig', index=True)
             return tmp_file.name
 
