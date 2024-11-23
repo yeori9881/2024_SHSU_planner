@@ -3,6 +3,9 @@ import pandas as pd
 import tempfile
 import os
 import re
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # 초기 상태 설정
 if 'username' not in st.session_state:
@@ -14,7 +17,6 @@ if 'start_time' not in st.session_state:
 if 'end_time' not in st.session_state:
     st.session_state['end_time'] = '23:59'
 
-# 시간 범위 생성 함수
 def generate_time_range(start='00:00', end='23:59', freq='10T'):
     return pd.date_range(start=start, end=end, freq=freq).strftime('%H:%M').tolist()
 
@@ -42,7 +44,6 @@ if st.session_state['username'] == '':
 
 if st.session_state['username'] != '' and st.session_state['time_unit']:
 
-    # 요일 설정 및 시간 슬롯 계산
     time_freq = '10T' if st.session_state['time_unit'] == '10분' else '30T'
     days_of_week = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
     time_slots = generate_time_range(st.session_state['start_time'], st.session_state['end_time'], freq=time_freq)
@@ -70,7 +71,6 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
 
     st.subheader("현재 입력된 주간 계획 보기")
 
-    # 현재 계획을 HTML 테이블로 시각화
     time_rows = "".join([
         f"<tr><td style='padding: 2px 5px; height: 20px;'>{time}</td>" +
         "".join([f"<td style='width: 100px; height: 20px;'>{st.session_state['weekly_plan'][day][i]}</td>"
@@ -98,28 +98,42 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
     """
     st.markdown(html_table, unsafe_allow_html=True)
 
-    # HTML 태그를 제거하는 함수 생성
     def strip_html(html):
         clean = re.compile('<.*?>')
         return re.sub(clean, '', html)
 
-    # CSV 저장시 색깔 코드를 제외하는 함수
-    def save_to_csv():
-        # HTML 태그를 제거한 순수한 텍스트로 변경
-        weekly_plan_text_only = {
-            day: [strip_html(slot) for slot in st.session_state['weekly_plan'][day]]
-            for day in days_of_week
-        }
+    # 엑셀 저장시 색깔 코드를 포함하는 함수
+    def save_to_excel():
+        workbook = Workbook()
+        sheet = workbook.active
+
+        # 열 제목 추가
+        sheet.append(['시간'] + days_of_week)
+
+        # 데이터 추가
+        for i, time in enumerate(time_slots):
+            for day in days_of_week:
+                cell_value = st.session_state['weekly_plan'][day][i]
+                clean_text = strip_html(cell_value)
+                cell = sheet.cell(row=i + 2, column=days_of_week.index(day) + 2)
+                cell.value = clean_text
+
+                # HTML 코드에서 색상 정보를 추출하여 셀 색상 지정
+                if 'background-color:' in cell_value:
+                    color_match = re.search(r'background-color: (#\w+);', cell_value)
+                    if color_match:
+                        color_code = color_match.group(1).lstrip('#')
+                        fill = PatternFill(start_color=color_code, end_color=color_code, fill_type="solid")
+                        cell.fill = fill
 
         # 임시 저장소 생성
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
-            df = pd.DataFrame(weekly_plan_text_only, index=time_slots)
-            df.to_csv(tmp_file.name, encoding='utf-8-sig', index=True)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
+            workbook.save(tmp_file.name)
             return tmp_file.name
 
-    # CSV 파일로 저장 버튼
-    if st.button("CSV 파일 다운로드"):
-        csv_path = save_to_csv()
-        with open(csv_path, "rb") as file:
-            st.download_button("CSV 파일로 다운로드", data=file, file_name='weekly_plan.csv', mime="text/csv")
-        os.remove(csv_path)  # 다운로드 후 임시 파일 삭제
+    # 엑셀 파일 다운로드 버튼
+    if st.button("엑셀 파일 다운로드"):
+        excel_path = save_to_excel()
+        with open(excel_path, "rb") as file:
+            st.download_button("엑셀 파일로 다운로드", data=file, file_name='weekly_plan.xlsx', mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        os.remove(excel_path)  # 다운로드 후 임시 파일 삭제
