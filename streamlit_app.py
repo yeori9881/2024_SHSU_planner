@@ -5,7 +5,6 @@ import os
 import re
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 # 초기 상태 설정
 if 'username' not in st.session_state:
@@ -112,10 +111,10 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
 
         # 데이터 추가
         for i, time in enumerate(time_slots):
-            for day in days_of_week:
+            for day_index, day in enumerate(days_of_week):
                 cell_value = st.session_state['weekly_plan'][day][i]
                 clean_text = strip_html(cell_value)
-                cell = sheet.cell(row=i + 2, column=days_of_week.index(day) + 2)
+                cell = sheet.cell(row=i + 2, column=day_index + 2)
                 cell.value = clean_text
 
                 # HTML 코드에서 색상 정보를 추출하여 셀 색상 지정
@@ -132,7 +131,7 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
             return tmp_file.name
 
     # 엑셀 파일 다운로드 버튼
-    if st.button("엑셀 파일 다운로드"):
+    if st.button("엑셀 파일로 다운로드"):
         excel_path = save_to_excel()
         with open(excel_path, "rb") as file:
             st.download_button("엑셀 파일로 다운로드", data=file, file_name='weekly_plan.xlsx', mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
