@@ -6,6 +6,7 @@ import re
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 
+
 # 초기 상태 설정
 if 'username' not in st.session_state:
     st.session_state['username'] = ''
@@ -61,7 +62,8 @@ if st.session_state['username'] != '' and st.session_state['time_unit']:
     if st.button("계획 추가"):
         if daily_task and task_color:
             start_idx = time_slots.index(start_time)
-            end_idx = time_slots.index(end_time) + 1
+            # end_idx를 포함하지 않도록 수정
+            end_idx = time_slots.index(end_time) 
             for idx in range(start_idx, end_idx):
                 st.session_state['weekly_plan'][selected_day][idx] = f"<div style='background-color: {task_color};'>{daily_task}</div>"
             st.success(f"{selected_day} {start_time}부터 {end_time}까지의 계획이 추가되었습니다!")
